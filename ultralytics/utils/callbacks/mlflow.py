@@ -2,6 +2,7 @@
 """
 MLflow Logging for Ultralytics YOLO.
 
+<<<<<<< HEAD
 This module enables MLflow logging for Ultralytics YOLO. It logs metrics, parameters, and model artifacts.
 For setting up, a tracking URI should be specified. The logging can be customized using environment variables.
 
@@ -36,11 +37,25 @@ try:
     PREFIX = colorstr("MLflow: ")
     SANITIZE = lambda x: {k.replace("(", "").replace(")", ""): float(v) for k, v in x.items()}
 
+=======
+import os
+import re
+from pathlib import Path
+
+from ultralytics.utils import LOGGER, TESTS_RUNNING, colorstr
+
+try:
+    import mlflow
+
+    assert not TESTS_RUNNING  # do not log pytest
+    assert hasattr(mlflow, '__version__')  # verify package is not directory
+>>>>>>> a2f3f15d (modify MLflow)
 except (ImportError, AssertionError):
     mlflow = None
 
 
 def on_pretrain_routine_end(trainer):
+<<<<<<< HEAD
     """
     Log training parameters to MLflow at the end of the pretraining routine.
 
@@ -93,6 +108,40 @@ def on_train_epoch_end(trainer):
             },
             step=trainer.epoch,
         )
+=======
+    """Logs training parameters to MLflow."""
+    global mlflow, run, run_id, experiment_name
+
+    if os.environ.get('MLFLOW_TRACKING_URI') is None:
+        mlflow = None
+    
+    if mlflow:
+        print(f'\n MLflow Start \n')
+        mlflow_location = os.environ['MLFLOW_TRACKING_URI']  # "http://192.168.xxx.xxx:5000"
+        print(f'\n Tracking URI: {mlflow_location} \n')
+        mlflow.set_tracking_uri(mlflow_location)
+
+        experiment_name = os.environ.get('MLFLOW_EXPERIMENT') or trainer.args.project or '/Shared/YOLOv8'
+        print(f'\n Experiment Name: {experiment_name} \n')
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            mlflow.create_experiment(experiment_name)
+        mlflow.set_experiment(experiment_name)
+
+        prefix = colorstr('MLflow: ')
+        try:
+            run, active_run = mlflow, mlflow.active_run()
+            if not active_run:
+                print(f'\n MLflow Runing \n')
+                name = os.environ.get('MLFLOW_RUN_NAME')
+                active_run = mlflow.start_run(experiment_id=experiment.experiment_id, run_name=name)
+            run_id = active_run.info.run_id
+            LOGGER.info(f'{prefix}Using run_id({run_id}) at {mlflow_location}')
+            run.log_params(vars(trainer.model.args))
+        except Exception as err:
+            LOGGER.error(f'{prefix}Failing init - {repr(err)}')
+            LOGGER.warning(f'{prefix}Continuing without Mlflow')
+>>>>>>> a2f3f15d (modify MLflow)
 
 
 def on_fit_epoch_end(trainer):
@@ -104,6 +153,7 @@ def on_fit_epoch_end(trainer):
 def on_train_end(trainer):
     """Log model artifacts at the end of the training."""
     if mlflow:
+<<<<<<< HEAD
         mlflow.log_artifact(str(trainer.best.parent))  # log save_dir/weights directory with best.pt and last.pt
         for f in trainer.save_dir.glob("*"):  # log all other files in save_dir
             if f.suffix in {".png", ".jpg", ".csv", ".pt", ".yaml"}:
@@ -119,6 +169,18 @@ def on_train_end(trainer):
             f"{PREFIX}results logged to {mlflow.get_tracking_uri()}\n"
             f"{PREFIX}disable with 'yolo settings mlflow=False'"
         )
+=======
+        # root_dir = Path(__file__).resolve().parents[3]
+        root_dir = Path('/home/mmaaou/PESLAU/runs/').resolve()
+        print(f'\n MLflow Tracking Directory: {root_dir} \n')
+        run.log_artifact(trainer.last)
+        run.log_artifact(trainer.best)
+        run.pyfunc.log_model(artifact_path=experiment_name,
+                             code_path=[str(root_dir)],
+                             artifacts={'model_path': str(trainer.save_dir)},
+                             python_model=run.pyfunc.PythonModel())
+        # mlflow.end_run()
+>>>>>>> a2f3f15d (modify MLflow)
 
 
 callbacks = (
